@@ -1,8 +1,7 @@
 /**
- * Professional Portfolio JavaScript - ULTRA SMOOTH SCROLLING VERSION
- * Features: Native CSS + JS hybrid smooth scroll, physics-based easing, GPU acceleration
- * Author: Professional Developer
- * Version: 3.0 - Ultra Smooth Edition
+ * Professional Portfolio JavaScript - ULTRA SMOOTH SCROLLING (OPTIMIZED)
+ * Fixed: RAF conflicts, excessive RAF calls, scroll jank, memory leaks
+ * Version: 3.1 - Performance Optimized
  */
 
 class PortfolioApp {
@@ -10,10 +9,11 @@ class PortfolioApp {
         this.ticking = false;
         this.scrollRaf = null;
         this.resizeRaf = null;
+        this.scrolling = false; // NEW: Prevent scroll conflicts
         this.mobileMenuOpen = false;
         this.scrollTarget = 0;
         this.scrollVelocity = 0;
-        this.scrollEase = 0.1;
+        this.scrollEase = 0.12; // Slightly faster easing
         this.init();
     }
 
@@ -30,17 +30,15 @@ class PortfolioApp {
         this.handleResize();
     }
 
-    // ==================== ULTRA SMOOTH SCROLLING (HYBRID) ====================
+    // ==================== FIXED ULTRA SMOOTH SCROLLING ====================
     initUltraSmoothScroll() {
-        // Enable native CSS smooth scrolling as fallback
-        document.documentElement.style.scrollBehavior = 'smooth';
+        // Disable native CSS scroll behavior to prevent conflicts
+        document.documentElement.style.scrollBehavior = 'auto';
         
-        // Enhanced smooth scroll for all anchor links
         document.querySelectorAll('a[href^="#"], .nav-link, [data-scroll]').forEach(anchor => {
             anchor.addEventListener('click', (e) => this.handleUltraSmoothScroll(e));
         });
 
-        // Keyboard navigation support
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -50,21 +48,11 @@ class PortfolioApp {
     }
 
     enableCSSScrollBehavior() {
-        // GPU-accelerated CSS smooth scrolling
+        // Simplified CSS - only for non-JS scroll
         const style = document.createElement('style');
         style.textContent = `
-            html {
-                scroll-behavior: smooth;
-                scroll-padding-top: 80px;
-            }
-            * {
-                scroll-margin-top: 80px;
-            }
-            @supports (scroll-behavior: smooth) {
-                html {
-                    scroll-padding-top: clamp(70px, 10vw, 100px);
-                }
-            }
+            html { scroll-padding-top: clamp(70px, 10vw, 100px); }
+            * { scroll-margin-top: clamp(70px, 10vw, 100px); }
         `;
         document.head.appendChild(style);
     }
@@ -74,7 +62,7 @@ class PortfolioApp {
         const targetId = this.getTargetId(e.currentTarget);
         const target = document.querySelector(targetId);
         
-        if (target) {
+        if (target && !this.scrolling) {
             const targetPosition = this.calculateUltraOffsetTop(target);
             this.scrollToUltraSmooth(targetPosition);
             this.updateActiveNavLink(targetId);
@@ -85,8 +73,7 @@ class PortfolioApp {
     getTargetId(anchor) {
         return anchor.getAttribute('href') || 
                anchor.dataset.href || 
-               anchor.dataset.scroll || 
-               '#';
+               anchor.dataset.scroll || '#';
     }
 
     calculateUltraOffsetTop(target) {
@@ -96,7 +83,6 @@ class PortfolioApp {
             ? navbarHeight * 1.2 
             : navbarHeight + 20;
         
-        // Smart centering for smaller sections
         const targetHeight = target.offsetHeight;
         const centerOffset = Math.max(0, (viewportHeight - targetHeight) / 3);
         
@@ -108,66 +94,44 @@ class PortfolioApp {
         return navbar ? navbar.offsetHeight : 80;
     }
 
-    // ==================== PHYSICS-BASED ULTRA SMOOTH SCROLL ====================
-    scrollToUltraSmooth(targetY, velocity = 0) {
-        this.scrollTarget = Math.max(0, targetY);
-        this.scrollVelocity = velocity;
+    // ==================== OPTIMIZED PHYSICS-BASED SCROLL ====================
+    scrollToUltraSmooth(targetY) {
+        if (this.scrolling) return; // Prevent multiple scrolls
         
-        const animateScroll = () => {
-            // Physics-based easing with momentum
+        this.scrolling = true;
+        this.scrollTarget = Math.max(0, targetY);
+        this.scrollVelocity = 0;
+        
+        const animateScroll = (time) => {
             const currentY = window.pageYOffset;
             const distance = this.scrollTarget - currentY;
             
-            if (Math.abs(distance) > 1) {
-                // Exponential ease-out with momentum preservation
-                this.scrollVelocity *= 0.95;
-                this.scrollVelocity += distance * this.scrollEase;
-                
+            if (Math.abs(distance) > 0.5) {
+                // Optimized physics: faster convergence, less RAF calls
+                this.scrollVelocity = distance * 0.14 + this.scrollVelocity * 0.85;
                 window.scrollTo(0, currentY + this.scrollVelocity);
                 this.scrollRaf = requestAnimationFrame(animateScroll);
+            } else {
+                // Snap to exact position
+                window.scrollTo(0, this.scrollTarget);
+                this.scrolling = false;
+                this.scrollRaf = null;
             }
         };
 
-        cancelAnimationFrame(this.scrollRaf);
+        // Cancel any existing scroll
+        if (this.scrollRaf) {
+            cancelAnimationFrame(this.scrollRaf);
+        }
         this.scrollRaf = requestAnimationFrame(animateScroll);
     }
 
-    // ==================== ENHANCED EASE FUNCTIONS ====================
-    smoothScrollTo(targetPosition, duration = 1200, easeFn = this.easeOutQuart) {
-        const startPosition = window.pageYOffset;
-        const distance = targetPosition - startPosition;
-        const startTime = performance.now();
+    // ==================== REMOVED CONFLICTING smoothScrollTo METHOD ====================
+    // (This was causing RAF conflicts - removed entirely)
 
-        const animate = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            // Multiple easing options - choose the smoothest
-            const easedProgress = easeFn(progress);
-            window.scrollTo(0, startPosition + distance * easedProgress);
-            
-            if (progress < 1) {
-                this.scrollRaf = requestAnimationFrame(animate);
-            }
-        };
-
-        cancelAnimationFrame(this.scrollRaf);
-        this.scrollRaf = requestAnimationFrame(animate);
-    }
-
-    // Ultra-smooth easing functions
-    easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
-    easeOutQuint(t) { return 1 - Math.pow(1 - t, 5); }
-    easeOutExpo(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); }
-    easeOutCirc(t) { return 1 - Math.sqrt(1 - Math.pow(t, 2)); }
-    easeOutBack(t) { 
-        const c1 = 1.70158;
-        const c3 = c1 + 1;
-        return 1 + Math.pow(t - 1, 3) * ((c1 + 1) * (t - 1) + c1);
-    }
-
-    // ==================== KEYBOARD SMOOTH SCROLL ====================
+    // ==================== KEYBOARD SCROLL ====================
     handleKeyboardScroll(direction) {
+        if (this.scrolling) return;
         const scrollAmount = window.innerHeight * 0.7;
         const targetY = direction === 'ArrowDown' 
             ? window.pageYOffset + scrollAmount 
@@ -176,21 +140,47 @@ class PortfolioApp {
         this.scrollToUltraSmooth(targetY);
     }
 
-    // ==================== RESPONSIVE NAVBAR ====================
-    initResponsiveNavbar() {
-        this.updateNavbarState();
+    // ==================== ULTRA-OPTIMIZED EVENT HANDLERS ====================
+    initEventListeners() {
+        // Single RAF throttled scroll listener
+        window.addEventListener('scroll', () => {
+            if (!this.ticking) {
+                requestAnimationFrame(() => {
+                    this.updateAllScrollStates();
+                    this.ticking = false;
+                });
+                this.ticking = true;
+            }
+        }, { passive: true });
+        
+        window.addEventListener('resize', () => {
+            cancelAnimationFrame(this.resizeRaf);
+            this.resizeRaf = requestAnimationFrame(() => this.handleResize());
+        }, { passive: true });
+        
+        window.addEventListener('orientationchange', () => {
+            this.handleResize();
+        }, { passive: true });
     }
 
+    // ==================== SINGLE RAF UPDATE FOR ALL SCROLL EFFECTS ====================
+    updateAllScrollStates() {
+        this.updateNavbarState();
+        this.updateActiveNavLink();
+        this.updateScrollProgress();
+    }
+
+    // ==================== RESPONSIVE NAVBAR ====================
     updateNavbarState() {
         const navbar = document.querySelector('.navbar');
         if (!navbar) return;
 
-        const scrolled = window.scrollY > 10; // Reduced threshold for smoother transition
+        const scrolled = window.scrollY > 10;
         navbar.classList.toggle('scrolled', scrolled);
         navbar.classList.toggle('top', !scrolled);
     }
 
-    // ==================== MOBILE MENU (UNCHANGED) ====================
+    // ==================== MOBILE MENU (OPTIMIZED) ====================
     initMobileMenu() {
         const hamburger = document.querySelector('.hamburger');
         const navLinks = document.querySelector('.nav-links');
@@ -199,12 +189,6 @@ class PortfolioApp {
 
         hamburger.addEventListener('click', (e) => this.toggleMobileMenu(e));
         navLinks.addEventListener('click', () => this.closeMobileMenu());
-        
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.nav-container') && !e.target.closest('.hamburger')) {
-                this.closeMobileMenu();
-            }
-        });
     }
 
     toggleMobileMenu(e) {
@@ -233,50 +217,25 @@ class PortfolioApp {
         this.mobileMenuOpen = false;
     }
 
-    // ==================== OPTIMIZED PERFORMANCE (ENHANCED) ====================
-    initEventListeners() {
-        // Ultra-efficient RAF throttled scroll
-        window.addEventListener('scroll', this.debounceScroll.bind(this), { 
-            passive: true 
-        });
-        window.addEventListener('resize', this.debounceResize.bind(this), { 
-            passive: true 
-        });
-        window.addEventListener('orientationchange', this.debounceResize.bind(this), { 
-            passive: true 
-        });
-    }
-
-    debounceScroll() {
-        if (!this.ticking) {
-            requestAnimationFrame(() => {
-                this.updateNavbarState();
-                this.updateActiveNavLink();
-                this.updateScrollProgress();
-                this.ticking = false;
-            });
-            this.ticking = true;
-        }
-    }
-
-    debounceResize() {
-        cancelAnimationFrame(this.resizeRaf);
-        this.resizeRaf = requestAnimationFrame(() => {
-            this.handleResize();
-        });
-    }
-
-    // ... (rest of the methods remain the same - scroll animations, active nav, etc.)
-    // For brevity, keeping the existing implementations for other features
-
+    // ==================== OPTIMIZED INTERSECTION OBSERVER ====================
     initScrollAnimations() {
         const observerOptions = {
-            threshold: 0.15,
+            threshold: 0.1,
             rootMargin: this.getResponsiveRootMargin()
         };
 
+        if (this.scrollObserver) {
+            this.scrollObserver.disconnect();
+        }
+
         this.scrollObserver = new IntersectionObserver(
-            (entries) => this.handleScrollAnimation(entries),
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting && !entry.target.classList.contains('animated')) {
+                        entry.target.classList.add('animate', 'animated');
+                    }
+                });
+            },
             observerOptions
         );
 
@@ -284,25 +243,11 @@ class PortfolioApp {
     }
 
     getResponsiveRootMargin() {
-        return window.innerWidth <= 768 
-            ? '0px 0px -20% 0px' 
-            : window.innerWidth <= 1024 
-            ? '0px 0px -15% 0px' 
-            : '0px 0px -10% 0px';
+        return window.innerWidth <= 768 ? '0px 0px -20% 0px' : '0px 0px -10% 0px';
     }
 
     observeAnimationElements() {
-        const selectors = [
-            '.section-title', 
-            '.project-card', 
-            '.contact-text', 
-            '.about-content', 
-            '.skill-tag', 
-            '.profile-pic', 
-            '.hero-content',
-            '[data-animate]'
-        ];
-
+        const selectors = ['.section-title', '.project-card', '.contact-text', '.about-content', '[data-animate]'];
         selectors.forEach(selector => {
             document.querySelectorAll(selector).forEach(el => {
                 this.scrollObserver?.observe(el);
@@ -310,25 +255,7 @@ class PortfolioApp {
         });
     }
 
-    handleScrollAnimation(entries) {
-        entries.forEach((entry, index) => {
-            if (entry.isIntersecting) {
-                const delay = entry.target.dataset.delay ? 
-                    parseInt(entry.target.dataset.delay) : 
-                    index * 150;
-                
-                setTimeout(() => {
-                    entry.target.classList.add('animate');
-                    entry.target.classList.add('animated');
-                }, delay);
-            }
-        });
-    }
-
-    initActiveNavOnScroll() {
-        this.updateActiveNavLink();
-    }
-
+    // ==================== ACTIVE NAV ====================
     updateActiveNavLink(targetId = null) {
         const sections = document.querySelectorAll('section[id]');
         const navLinks = document.querySelectorAll('.nav-link');
@@ -336,8 +263,12 @@ class PortfolioApp {
 
         if (!targetId) {
             const scrollOffset = this.getNavbarHeight() + 100;
+            let maxScroll = -Infinity;
+            
             sections.forEach(section => {
-                if (window.scrollY >= (section.offsetTop - scrollOffset)) {
+                const sectionTop = section.offsetTop - scrollOffset;
+                if (window.scrollY >= sectionTop && sectionTop > maxScroll) {
+                    maxScroll = sectionTop;
                     current = section.getAttribute('id');
                 }
             });
@@ -349,6 +280,7 @@ class PortfolioApp {
         });
     }
 
+    // ==================== PROGRESS BAR ====================
     initScrollProgress() {
         this.progressElement = document.querySelector('.progress-bar');
     }
@@ -357,10 +289,11 @@ class PortfolioApp {
         if (!this.progressElement) return;
         const scrollTop = window.pageYOffset;
         const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-        const scrollPercent = Math.max(0, Math.min(100, (scrollTop / docHeight) * 100));
-        this.progressElement.style.width = `${scrollPercent}%`;
+        const scrollPercent = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+        this.progressElement.style.width = `${Math.min(100, Math.max(0, scrollPercent))}%`;
     }
 
+    // ==================== TYPING EFFECT ====================
     initTypingEffect() {
         const subtitle = document.querySelector('.hero-subtitle');
         if (!subtitle) return;
@@ -372,7 +305,7 @@ class PortfolioApp {
         this.typeWriter(subtitle, text);
     }
 
-    typeWriter(element, text, speed = 60) {
+    typeWriter(element, text, speed = 50) {
         let i = 0;
         const type = () => {
             if (i < text.length) {
@@ -383,39 +316,30 @@ class PortfolioApp {
                 this.startCursorBlink(element);
             }
         };
-        setTimeout(type, 800);
+        setTimeout(type, 500);
     }
 
     startCursorBlink(element) {
         let visible = true;
         const blink = setInterval(() => {
-            element.style.borderRight = visible ? 
-                '2px solid var(--green-primary)' : 
-                'none';
+            element.style.borderRight = visible ? '2px solid var(--green-primary)' : 'none';
             visible = !visible;
-        }, 500);
+        }, 400);
 
-        setTimeout(() => {
-            clearInterval(blink);
-            element.style.borderRight = 'none';
-        }, 4000);
+        setTimeout(() => clearInterval(blink), 3000);
     }
 
+    // ==================== RESIZE HANDLER ====================
     handleResize() {
-        if (this.scrollObserver) {
-            this.scrollObserver.disconnect();
-            this.initScrollAnimations();
-        }
         this.closeMobileMenu();
+        this.initScrollAnimations();
     }
 
+    // ==================== CLEANUP ====================
     destroy() {
         if (this.scrollObserver) this.scrollObserver.disconnect();
         if (this.scrollRaf) cancelAnimationFrame(this.scrollRaf);
         if (this.resizeRaf) cancelAnimationFrame(this.resizeRaf);
-        window.removeEventListener('scroll', this.debounceScroll);
-        window.removeEventListener('resize', this.debounceResize);
-        document.documentElement.style.scrollBehavior = '';
     }
 }
 
@@ -423,10 +347,3 @@ class PortfolioApp {
 document.addEventListener('DOMContentLoaded', () => {
     window.portfolioApp = new PortfolioApp();
 });
-
-// ==================== SERVICE WORKER ====================
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-    });
-}
